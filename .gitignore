@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tgz
+build-guardian-history.json
+build-stats.json
+build-guardian-metrics.txt
+build-guardian-comment.md

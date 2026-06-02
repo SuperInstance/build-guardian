@@ -1,0 +1,28 @@
+{
+  "name": "@superinstance/build-guardian",
+  "version": "0.2.0",
+  "description": "Build Budget Guardian — tracks build resource usage, enforces budgets, detects bloat trends, and integrates with any JS/TS bundler and CI pipeline",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --config jest.config.js",
+    "lint": "eslint 'src/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["build", "budget", "bundle", "performance", "guardian", "webpack", "vite", "rollup", "esbuild", "ci", "grafana", "prometheus", "slack"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SuperInstance/build-guardian"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  }
+}
