@@ -3,7 +3,7 @@ import {
   type EntryMetrics,
   type AlertRule,
 } from '../index';
-import { analyzeWebpackStats, analyzeEsbuildMetafile, normalizeEntryName, isThirdParty, getTopModules } from '../analyzer';
+import { analyzeWebpackStats, normalizeEntryName, isThirdParty, getTopModules } from '../analyzer';
 import { analyzeViteOutput, analyzeRollupOutput } from '../adapters/vite-rollup';
 import { generateReport, generateSummary } from '../reporter';
 import { toPrometheus } from '../export/prometheus';

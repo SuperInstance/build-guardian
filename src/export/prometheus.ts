@@ -3,7 +3,6 @@
  */
 
 import type { BuildReport } from '../types';
-import { formatBytes } from '../types';
 
 export interface PrometheusMetric {
   name: string;

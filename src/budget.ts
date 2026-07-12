@@ -4,8 +4,7 @@
 
 import type {
   EntryMetrics, EntryBudget, AlertRule, ConservationScore,
-  BloatAlert, BudgetViolation, AlertResult, TrendAnalysis,
-  BuildReport, HistoryEntry,
+  BloatAlert, BudgetViolation, BuildReport, HistoryEntry,
 } from './types';
 import { evaluateAlertRules } from './alerting';
 import { analyzeTrends } from './trends';
