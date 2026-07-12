@@ -305,8 +305,8 @@ src/
 │   ├── slack.ts          # Slack Block Kit
 │   ├── markdown.ts       # Refined markdown
 │   └── github-comment.ts # GitHub PR comments
-└── __tests__/
-    └── guardian.test.ts  # 55 tests
+    └── __tests__/
+    └── guardian.test.ts  # 63 tests
 ```
 
 ## Plugins Guide
