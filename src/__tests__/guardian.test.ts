@@ -3,7 +3,7 @@ import {
   type EntryMetrics,
   type AlertRule,
 } from '../index';
-import { analyzeWebpackStats, normalizeEntryName, isThirdParty, getTopModules } from '../analyzer';
+import { analyzeWebpackStats, analyzeEsbuildMetafile, normalizeEntryName, isThirdParty, getTopModules, buildChunkTree } from '../analyzer';
 import { analyzeViteOutput, analyzeRollupOutput } from '../adapters/vite-rollup';
 import { generateReport, generateSummary } from '../reporter';
 import { toPrometheus } from '../export/prometheus';
@@ -265,6 +265,15 @@ describe('compareEntry', () => {
     budget.recordEntry(makeEntry({ entry: 'x' }));
     expect(budget.compareEntry('x')).toBeNull();
   });
+
+  it('returns null for an unknown entry after history exists', () => {
+    const budget = new BuildBudget();
+    budget.recordEntry(makeEntry({ entry: 'known' }));
+    budget.finalizeBuild();
+
+    budget.recordEntry(makeEntry({ entry: 'known' }));
+    expect(budget.compareEntry('missing')).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -390,8 +399,58 @@ describe('analyzeWebpackStats', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Vite adapter
+// Analyzer (esbuild)
 // ---------------------------------------------------------------------------
+
+describe('analyzeEsbuildMetafile', () => {
+  it('extracts outputs and per-input sizes from an esbuild metafile', () => {
+    const metafile = {
+      outputs: {
+        'dist/main.js': {
+          bytes: 2048,
+          entryPoint: 'src/main.ts',
+          inputs: {
+            'src/main.ts': { bytesInOutput: 1024 },
+            'src/app.ts': { bytesInOutput: 1024 },
+          },
+        },
+        'dist/vendor.js': {
+          bytes: 4096,
+          inputs: {
+            'node_modules/lodash/index.js': { bytesInOutput: 4096 },
+          },
+        },
+      },
+    };
+
+    const analyses = analyzeEsbuildMetafile(metafile);
+    expect(analyses).toHaveLength(2);
+
+    const main = analyses.find((a) => a.name === 'dist/main');
+    expect(main).toBeDefined();
+    expect(main!.totalSizeBytes).toBe(2048);
+    expect(main!.assetFile).toBe('dist/main.js');
+    expect(main!.entryOrigin).toBe('src/main.ts');
+    expect(main!.modules).toHaveLength(2);
+    expect(main!.modules.map((m) => m.name)).toContain('src/app.ts');
+
+    const vendor = analyses.find((a) => a.name === 'dist/vendor');
+    expect(vendor!.modules[0].sizeBytes).toBe(4096);
+  });
+
+  it('handles an empty metafile', () => {
+    expect(analyzeEsbuildMetafile({ outputs: {} })).toHaveLength(0);
+  });
+
+  it('defaults missing input sizes to 0', () => {
+    const analyses = analyzeEsbuildMetafile({
+      outputs: { 'out.js': { bytes: 100, inputs: { 'a.ts': {} } } },
+    });
+    expect(analyses[0].modules[0].sizeBytes).toBe(0);
+  });
+});
+
+
 
 describe('analyzeViteOutput', () => {
   it('parses Vite build output chunks', () => {
@@ -527,6 +586,36 @@ describe('getTopModules', () => {
     expect(top).toHaveLength(2);
     expect(top[0].name).toBe('x');
     expect(top[0].sizeBytes).toBe(150);
+  });
+});
+
+describe('buildChunkTree', () => {
+  it('maps each chunk name to its child chunk names', () => {
+    const stats = {
+      chunks: [
+        { id: 0, names: ['app'], size: 30000, children: [1, 2], entry: true },
+        { id: 1, names: ['vendors'], size: 50000, parents: [0] },
+        { id: 2, names: ['runtime'], size: 5000, parents: [0] },
+      ],
+      modules: [
+        { name: './App.tsx', size: 30000, chunks: [0] },
+        { name: 'react', size: 50000, chunks: [1] },
+        { name: './runtime.ts', size: 5000, chunks: [2] },
+      ],
+    };
+
+    const analyses = analyzeWebpackStats(stats);
+    const tree = buildChunkTree(analyses);
+
+    expect(tree.get('app')).toEqual(expect.arrayContaining(['vendors', 'runtime']));
+    expect(tree.get('vendors')).toEqual([]);
+  });
+
+  it('returns empty child arrays when no children ids are present', () => {
+    const tree = buildChunkTree([
+      { name: 'solo', totalSizeBytes: 10, modules: [] },
+    ]);
+    expect(tree.get('solo')).toEqual([]);
   });
 });
 
@@ -736,6 +825,32 @@ describe('PersistenceManager', () => {
 
     const loaded = await pm.load();
     expect(loaded).toEqual([]);
+  });
+
+  it('returns empty array when the history file is corrupt JSON', async () => {
+    const pm = new PersistenceManager({ filePath: '/tmp/bg-corrupt.json' });
+    await pm.clear();
+    const fs = await import('fs');
+    fs.writeFileSync('/tmp/bg-corrupt.json', '{ this is not valid json', 'utf-8');
+
+    const loaded = await pm.load();
+    expect(loaded).toEqual([]);
+
+    await pm.clear();
+  });
+
+  it('returns empty array when history field is missing or malformed', async () => {
+    const pm = new PersistenceManager({ filePath: '/tmp/bg-nohistory.json' });
+    await pm.clear();
+    const fs = await import('fs');
+    fs.writeFileSync('/tmp/bg-nohistory.json', JSON.stringify({ version: '0.2.0' }), 'utf-8');
+
+    expect(await pm.load()).toEqual([]);
+
+    fs.writeFileSync('/tmp/bg-nohistory.json', JSON.stringify({ history: 'not-an-array' }), 'utf-8');
+    expect(await pm.load()).toEqual([]);
+
+    await pm.clear();
   });
 
   it('trims history to maxEntries', async () => {

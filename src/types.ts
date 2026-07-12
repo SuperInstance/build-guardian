@@ -125,6 +125,7 @@ export interface ChunkAnalysis {
   children?: number[];
   moduleIds?: (string | number)[];
   chunkType?: 'entry' | 'chunk' | 'initial';
+  chunkId?: number;
 }
 
 export function formatBytes(bytes: number): string {
