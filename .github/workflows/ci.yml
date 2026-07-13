@@ -26,7 +26,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint || echo "Lint not configured, skipping"
+        run: npm run lint
 
       - name: Type check
         run: npm run typecheck

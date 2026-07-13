@@ -34,8 +34,13 @@ export class PersistenceManager {
       return [];
     }
     const raw = fs.readFileSync(this.filePath, 'utf-8');
-    const data = JSON.parse(raw);
-    return data.history ?? [];
+    let data: { history?: HistoryEntry[] };
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+    return Array.isArray(data.history) ? data.history : [];
   }
 
   async getRouteSizeHistory(): Promise<Map<string, Array<{ timestamp: number; sizeBytes: number }>>> {

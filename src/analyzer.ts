@@ -73,6 +73,7 @@ function analyzeWebpackStatsSingle(statsJson: WebpackStatsJson): ChunkAnalysis[]
         hash: chunk.hash,
         children: chunk.children ?? [],
         chunkType: chunk.entry ? 'entry' : (chunk.initial ? 'initial' : 'chunk'),
+        chunkId: chunk.id,
       });
     }
   }
@@ -203,9 +204,19 @@ export function getTopModules(analyses: ChunkAnalysis[], n: number = 10): Module
 }
 
 export function buildChunkTree(analyses: ChunkAnalysis[]): Map<string, string[]> {
+  const idToName = new Map<number, string>();
+  for (const a of analyses) {
+    if (a.chunkId !== undefined) {
+      idToName.set(a.chunkId, a.name);
+    }
+  }
+
   const tree = new Map<string, string[]>();
   for (const a of analyses) {
-    tree.set(a.name, []);
+    const childNames = (a.children ?? [])
+      .map((cid) => idToName.get(cid))
+      .filter((n): n is string => typeof n === 'string' && n !== a.name);
+    tree.set(a.name, childNames);
   }
   return tree;
 }
